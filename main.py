@@ -14,10 +14,10 @@ async def main():
     bot = Bot(token=settings.bot_token)
     storage = MemoryStorage()
     dp = Dispatcher(storage=storage)
-    dp.update.middleware(DatabaseMiddleware())
     dp.include_router(start.router)
     dp.include_router(tickets.router)
     dp.include_router(admin.router)
+    dp.update.middleware(DatabaseMiddleware())
     try:
         await dp.start_polling(bot)
     except Exception as e:
