@@ -7,6 +7,7 @@ from aiogram.types import (
 )
 from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.db.enums import TicketStatus
 from app.db.models import Ticket, Message as TicketMessage
 from app.config import settings
 
@@ -20,13 +21,13 @@ async def show_stats(message: Message, session: AsyncSession):
 
     total_tickets = await session.scalar(select(func.count(Ticket.id)))
     open_tickets = await session.scalar(
-        select(func.count(Ticket.id)).where(Ticket.status == "open")
+        select(func.count(Ticket.id)).where(Ticket.status == TicketStatus.open)
     )
     closed_tickets = await session.scalar(
-        select(func.count(Ticket.id)).where(Ticket.status == "closed")
+        select(func.count(Ticket.id)).where(Ticket.status == TicketStatus.closed)
     )
     in_progress_tickets = await session.scalar(
-        select(func.count(Ticket.id)).where(Ticket.status == "in_progress")
+        select(func.count(Ticket.id)).where(Ticket.status == TicketStatus.in_progress)
     )
 
     stats_text = f"""
@@ -73,9 +74,9 @@ async def show_all_tickets(message: Message, session: AsyncSession):
     for ticket in tickets:
         status_emoji = (
             "🔓"
-            if ticket.status == "open"
+            if ticket.status == TicketStatus.open
             else "🔄"
-            if ticket.status == "in_progress"
+            if ticket.status == TicketStatus.in_progress
             else "🔒"
         )
         username = (
@@ -142,9 +143,9 @@ async def filter_tickets(callback: CallbackQuery, session: AsyncSession):
     for ticket in tickets:
         status_emoji = (
             "🔓"
-            if ticket.status == "open"
+            if ticket.status == TicketStatus.open
             else "🔄"
-            if ticket.status == "in_progress"
+            if ticket.status == TicketStatus.in_progress
             else "🔒"
         )
         username = (
@@ -191,9 +192,9 @@ async def admin_view_ticket_details(callback: CallbackQuery, session: AsyncSessi
 
     status_emoji = (
         "🔓"
-        if ticket.status == "open"
+        if ticket.status == TicketStatus.open
         else "🔄"
-        if ticket.status == "in_progress"
+        if ticket.status == TicketStatus.in_progress
         else "🔒"
     )
     username = (
@@ -226,7 +227,7 @@ async def admin_view_ticket_details(callback: CallbackQuery, session: AsyncSessi
             ]
         )
 
-        if ticket.status == "open":
+        if ticket.status == TicketStatus.open:
             keyboard.inline_keyboard.append(
                 [
                     InlineKeyboardButton(
@@ -279,7 +280,7 @@ async def take_ticket(callback: CallbackQuery, session: AsyncSession):
         await callback.answer("❌ Нельзя взять это обращение в работу!")
         return
 
-    ticket.status = "in_progress"
+    ticket.status = TicketStatus.in_progress
     await session.commit()
 
     try:
@@ -308,7 +309,7 @@ async def reopen_ticket(callback: CallbackQuery, session: AsyncSession):
         await callback.answer("❌ Нельзя вернуть это обращение в открытые!")
         return
 
-    ticket.status = "open"
+    ticket.status = TicketStatus.open
     await session.commit()
 
     await callback.answer("✅ Обращение возвращено в открытые!")

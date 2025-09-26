@@ -9,6 +9,7 @@ from aiogram.types import (
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.db.enums import TicketStatus
 from app.db.models import Ticket, Message as TicketMessage
 from app.keyboards.main import get_ticket_keyboard, get_main_keyboard
 from app.config import settings
@@ -155,7 +156,7 @@ async def close_ticket(callback: CallbackQuery, session: AsyncSession):
         await callback.answer()
         return
 
-    ticket.status = "closed"
+    ticket.status = TicketStatus.closed
     await session.commit()
 
     try:
@@ -187,9 +188,9 @@ async def show_my_tickets(message: Message, session: AsyncSession):
     for ticket in tickets:
         status_emoji = (
             "🔓"
-            if ticket.status == "open"
+            if ticket.status == TicketStatus.open
             else "🔒"
-            if ticket.status == "closed"
+            if ticket.status == TicketStatus.closed
             else "🔄"
         )
         keyboard.inline_keyboard.append(
@@ -221,7 +222,11 @@ async def view_ticket_details(callback: CallbackQuery, session: AsyncSession):
     messages = result.scalars().all()
 
     status_emoji = (
-        "🔓" if ticket.status == "open" else "🔒" if ticket.status == "closed" else "🔄"
+        "🔓"
+        if ticket.status == TicketStatus.open
+        else "🔒"
+        if ticket.status == TicketStatus.closed
+        else "🔄"
     )
     text = f"{status_emoji} Обращение #{ticket.id}\n"
     text += f"📅 Создан: {ticket.created_at.strftime('%d.%m.%Y %H:%M')}\n"
@@ -234,7 +239,7 @@ async def view_ticket_details(callback: CallbackQuery, session: AsyncSession):
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[])
 
-    if ticket.status == "open":
+    if ticket.status == TicketStatus.open:
         keyboard.inline_keyboard.append(
             [
                 InlineKeyboardButton(
