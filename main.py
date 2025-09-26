@@ -3,11 +3,11 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from config import config
-from database import engine
-from models.ticket import Base
-from handlers import start, tickets, admin
-from middlewares import DatabaseMiddleware
+from app.config import config
+from app.db.session import engine
+from app.db.models import Base
+from app.handlers import start, tickets, admin
+from app.middlewares import DatabaseMiddleware
 
 logging.basicConfig(level=logging.INFO)
 

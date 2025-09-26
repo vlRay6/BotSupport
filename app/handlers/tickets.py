@@ -1,12 +1,18 @@
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import (
+    Message,
+    CallbackQuery,
+    ReplyKeyboardRemove,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from sqlalchemy import select
-from database import get_db
-from models.ticket import Ticket, Message as TicketMessage
-from keyboards.main import get_ticket_keyboard, get_main_keyboard
-from config import config
+from app.db.session import get_db
+from app.db.models import Ticket, Message as TicketMessage
+from app.keyboards.main import get_ticket_keyboard, get_main_keyboard
+from app.config import config
 
 
 router = Router()
@@ -22,8 +28,7 @@ class TicketStates(StatesGroup):
 async def create_ticket_start(message: Message, state: FSMContext):
     await state.set_state(TicketStates.waiting_for_subject)
     await message.answer(
-        "📝 Введите тему вашего обращения:",
-        reply_markup=ReplyKeyboardRemove()
+        "📝 Введите тему вашего обращения:", reply_markup=ReplyKeyboardRemove()
     )
 
 
@@ -37,8 +42,8 @@ async def process_subject(message: Message, state: FSMContext):
 @router.message(TicketStates.waiting_for_message)
 async def process_message(message: Message, state: FSMContext):
     data = await state.get_data()
-    is_additional = data.get('is_additional', False)
-    ticket_id = data.get('ticket_id')
+    is_additional = data.get("is_additional", False)
+    ticket_id = data.get("ticket_id")
 
     if is_additional and ticket_id:
         async with get_db() as session:
@@ -49,7 +54,7 @@ async def process_message(message: Message, state: FSMContext):
                     user_id=message.from_user.id,
                     message_id=message.message_id,
                     text=message.text,
-                    is_from_user=True
+                    is_from_user=True,
                 )
                 session.add(msg)
                 await session.commit()
@@ -61,7 +66,7 @@ async def process_message(message: Message, state: FSMContext):
                             await message.bot.send_message(
                                 admin_id,
                                 admin_text,
-                                reply_markup=get_ticket_keyboard(ticket.id)
+                                reply_markup=get_ticket_keyboard(ticket.id),
                             )
                         except Exception:
                             pass
@@ -72,13 +77,13 @@ async def process_message(message: Message, state: FSMContext):
 
         await state.clear()
         return
-    subject = data.get('subject')
+    subject = data.get("subject")
     async with get_db() as session:
         ticket = Ticket(
             user_id=message.from_user.id,
             username=message.from_user.username,
             first_name=message.from_user.first_name,
-            last_name=message.from_user.last_name
+            last_name=message.from_user.last_name,
         )
         session.add(ticket)
         await session.flush()
@@ -87,7 +92,7 @@ async def process_message(message: Message, state: FSMContext):
             user_id=message.from_user.id,
             message_id=message.message_id,
             text=f"Тема: {subject}\n\n{message.text}",
-            is_from_user=True
+            is_from_user=True,
         )
         session.add(msg)
         await session.commit()
@@ -99,7 +104,7 @@ async def process_message(message: Message, state: FSMContext):
                     await message.bot.send_message(
                         admin_id,
                         admin_text,
-                        reply_markup=get_ticket_keyboard(ticket.id)
+                        reply_markup=get_ticket_keyboard(ticket.id),
                     )
                 except Exception as e:
                     print(f"Error sending to admin {admin_id}: {e}")
@@ -107,7 +112,7 @@ async def process_message(message: Message, state: FSMContext):
     await state.clear()
     await message.answer(
         "✅ Ваше обращение отправлено! Ожидайте ответа от поддержки.",
-        reply_markup=get_main_keyboard()
+        reply_markup=get_main_keyboard(),
     )
 
 
@@ -123,7 +128,7 @@ async def reply_to_ticket(callback: CallbackQuery, state: FSMContext):
 @router.message(TicketStates.waiting_for_reply)
 async def process_reply(message: Message, state: FSMContext):
     data = await state.get_data()
-    ticket_id = data.get('ticket_id')
+    ticket_id = data.get("ticket_id")
 
     async with get_db() as session:
         ticket = await session.get(Ticket, ticket_id)
@@ -137,14 +142,14 @@ async def process_reply(message: Message, state: FSMContext):
             user_id=message.from_user.id,
             message_id=message.message_id,
             text=message.text,
-            is_from_user=False
+            is_from_user=False,
         )
         session.add(msg)
 
         try:
             await message.bot.send_message(
                 ticket.user_id,
-                f"📩 Ответ от поддержки по обращению #{ticket.id}:\n\n{message.text}"
+                f"📩 Ответ от поддержки по обращению #{ticket.id}:\n\n{message.text}",
             )
         except Exception as e:
             await message.answer(f"❌ Не удалось отправить сообщение пользователю: {e}")
@@ -167,8 +172,7 @@ async def close_ticket(callback: CallbackQuery):
 
             try:
                 await callback.bot.send_message(
-                    ticket.user_id,
-                    f"✅ Ваше обращение #{ticket.id} закрыт поддержкой."
+                    ticket.user_id, f"✅ Ваше обращение #{ticket.id} закрыт поддержкой."
                 )
             except Exception:
                 pass
@@ -194,17 +198,24 @@ async def show_my_tickets(message: Message):
         keyboard = InlineKeyboardMarkup(inline_keyboard=[])
 
         for ticket in tickets:
-            status_emoji = "🔓" if ticket.status == "open" else "🔒" if ticket.status == "closed" else "🔄"
-            keyboard.inline_keyboard.append([
-                InlineKeyboardButton(
-                    text=f"{status_emoji} Обращение #{ticket.id} ({ticket.status})",
-                    callback_data=f"view_ticket_{ticket.id}"
-                )
-            ])
+            status_emoji = (
+                "🔓"
+                if ticket.status == "open"
+                else "🔒"
+                if ticket.status == "closed"
+                else "🔄"
+            )
+            keyboard.inline_keyboard.append(
+                [
+                    InlineKeyboardButton(
+                        text=f"{status_emoji} Обращение #{ticket.id} ({ticket.status})",
+                        callback_data=f"view_ticket_{ticket.id}",
+                    )
+                ]
+            )
 
         await message.answer(
-            f"📋 Ваши обращения ({len(tickets)}):",
-            reply_markup=keyboard
+            f"📋 Ваши обращения ({len(tickets)}):", reply_markup=keyboard
         )
 
 
@@ -225,7 +236,13 @@ async def view_ticket_details(callback: CallbackQuery):
         )
         messages = result.scalars().all()
 
-        status_emoji = "🔓" if ticket.status == "open" else "🔒" if ticket.status == "closed" else "🔄"
+        status_emoji = (
+            "🔓"
+            if ticket.status == "open"
+            else "🔒"
+            if ticket.status == "closed"
+            else "🔄"
+        )
         text = f"{status_emoji} Обращение #{ticket.id}\n"
         text += f"📅 Создан: {ticket.created_at.strftime('%d.%m.%Y %H:%M')}\n"
         text += f"📊 Статус: {ticket.status}\n\n"
@@ -238,19 +255,22 @@ async def view_ticket_details(callback: CallbackQuery):
         keyboard = InlineKeyboardMarkup(inline_keyboard=[])
 
         if ticket.status == "open":
-            keyboard.inline_keyboard.append([
-                InlineKeyboardButton(
-                    text="💬 Добавить сообщение",
-                    callback_data=f"add_message_{ticket.id}"
-                )
-            ])
-
-        keyboard.inline_keyboard.append([
-            InlineKeyboardButton(
-                text="⬅️ Назад к списку",
-                callback_data="back_to_tickets"
+            keyboard.inline_keyboard.append(
+                [
+                    InlineKeyboardButton(
+                        text="💬 Добавить сообщение",
+                        callback_data=f"add_message_{ticket.id}",
+                    )
+                ]
             )
-        ])
+
+        keyboard.inline_keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text="⬅️ Назад к списку", callback_data="back_to_tickets"
+                )
+            ]
+        )
 
         await callback.message.edit_text(text, reply_markup=keyboard)
     await callback.answer()
@@ -268,7 +288,11 @@ async def add_message_to_ticket(callback: CallbackQuery, state: FSMContext):
 
     async with get_db() as session:
         ticket = await session.get(Ticket, ticket_id)
-        if not ticket or ticket.user_id != callback.from_user.id or ticket.status != "open":
+        if (
+            not ticket
+            or ticket.user_id != callback.from_user.id
+            or ticket.status != "open"
+        ):
             await callback.answer("❌ Нельзя добавить сообщение к этому обращению!")
             return
 
