@@ -35,39 +35,38 @@ async def process_subject(message: Message, state: FSMContext):
 
 @router.message(TicketStates.waiting_for_message)
 async def process_message(message: Message, state: FSMContext, session: AsyncSession):
-    print(session)
     data = await state.get_data()
     is_additional = data.get("is_additional", False)
     ticket_id = data.get("ticket_id")
 
     if is_additional and ticket_id:
         ticket = await session.get(Ticket, ticket_id)
-        if ticket and ticket.status == "open":
-            msg = TicketMessage(
-                ticket_id=ticket.id,
-                user_id=message.from_user.id,
-                message_id=message.message_id,
-                text=message.text,
-                is_from_user=True,
-            )
-            session.add(msg)
-
-            if settings.admin_ids:
-                admin_text = f"💬 Новое сообщение в обращении #{ticket.id}\n👤 Пользователь: @{message.from_user.username or 'нет'}"
-                for admin_id in settings.admin_ids:
-                    try:
-                        await message.bot.send_message(
-                            admin_id,
-                            admin_text,
-                            reply_markup=get_ticket_keyboard(ticket.id),
-                        )
-                    except Exception:
-                        pass
-
-            await message.answer("✅ Сообщение добавлено!")
-        else:
+        if not ticket or ticket.status != "open":
             await message.answer("❌ Нельзя добавить сообщение.")
+            await state.clear()
+            return
 
+        msg = TicketMessage(
+            ticket_id=ticket.id,
+            user_id=message.from_user.id,
+            message_id=message.message_id,
+            text=message.text,
+            is_from_user=True,
+        )
+        session.add(msg)
+
+        admin_text = f"💬 Новое сообщение в обращении #{ticket.id}\n👤 Пользователь: @{message.from_user.username or 'нет'}"
+        for admin_id in settings.admin_ids:
+            try:
+                await message.bot.send_message(
+                    admin_id,
+                    admin_text,
+                    reply_markup=get_ticket_keyboard(ticket.id),
+                )
+            except Exception:
+                pass
+
+        await message.answer("✅ Сообщение добавлено!")
         await state.clear()
         return
     subject = data.get("subject")
@@ -89,16 +88,15 @@ async def process_message(message: Message, state: FSMContext, session: AsyncSes
     session.add(msg)
     admin_text = f"📨 Новое обращение #{ticket.id}\n👤 Пользователь: @{message.from_user.username or 'нет'}\n📝 Тема: {subject}"
 
-    if settings.admin_ids:
-        for admin_id in settings.admin_ids:
-            try:
-                await message.bot.send_message(
-                    admin_id,
-                    admin_text,
-                    reply_markup=get_ticket_keyboard(ticket.id),
-                )
-            except Exception as e:
-                print(f"Error sending to admin {admin_id}: {e}")
+    for admin_id in settings.admin_ids:
+        try:
+            await message.bot.send_message(
+                admin_id,
+                admin_text,
+                reply_markup=get_ticket_keyboard(ticket.id),
+            )
+        except Exception as e:
+            print(f"Error sending to admin {admin_id}: {e}")
 
     await state.clear()
     await message.answer(
@@ -153,19 +151,21 @@ async def close_ticket(callback: CallbackQuery, session: AsyncSession):
     ticket_id = int(callback.data.split("_")[1])
 
     ticket = await session.get(Ticket, ticket_id)
-    if ticket:
-        ticket.status = "closed"
-        await session.commit()
+    if not ticket:
+        await callback.answer()
+        return
 
-        try:
-            await callback.bot.send_message(
-                ticket.user_id, f"✅ Ваше обращение #{ticket.id} закрыт поддержкой."
-            )
-        except Exception:
-            pass
+    ticket.status = "closed"
+    await session.commit()
 
-        await callback.message.edit_text(f"✅ Обращение #{ticket.id} закрыто.")
+    try:
+        await callback.bot.send_message(
+            ticket.user_id, f"✅ Ваше обращение #{ticket.id} закрыт поддержкой."
+        )
+    except Exception:
+        pass
 
+    await callback.message.edit_text(f"✅ Обращение #{ticket.id} закрыто.")
     await callback.answer()
 
 

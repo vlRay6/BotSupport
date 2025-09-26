@@ -275,23 +275,24 @@ async def take_ticket(callback: CallbackQuery, session: AsyncSession):
     ticket_id = int(callback.data.split("_")[1])
 
     ticket = await session.get(Ticket, ticket_id)
-    if ticket and ticket.status == "open":
-        ticket.status = "in_progress"
-        await session.commit()
-
-        try:
-            await callback.bot.send_message(
-                ticket.user_id,
-                f"🔄 Ваше обращение #{ticket.id} взято в работу администратором.",
-            )
-        except Exception:
-            pass
-
-        await callback.answer("✅ Обращение взято в работу!")
-
-        await admin_view_ticket_details(callback)
-    else:
+    if not ticket or ticket.status != "open":
         await callback.answer("❌ Нельзя взять это обращение в работу!")
+        return
+
+    ticket.status = "in_progress"
+    await session.commit()
+
+    try:
+        await callback.bot.send_message(
+            ticket.user_id,
+            f"🔄 Ваше обращение #{ticket.id} взято в работу администратором.",
+        )
+    except Exception:
+        pass
+
+    await callback.answer("✅ Обращение взято в работу!")
+
+    await admin_view_ticket_details(callback)
 
 
 @router.callback_query(F.data.startswith("reopen_"))
@@ -303,11 +304,12 @@ async def reopen_ticket(callback: CallbackQuery, session: AsyncSession):
     ticket_id = int(callback.data.split("_")[1])
 
     ticket = await session.get(Ticket, ticket_id)
-    if ticket and ticket.status == "in_progress":
-        ticket.status = "open"
-        await session.commit()
-
-        await callback.answer("✅ Обращение возвращено в открытые!")
-        await admin_view_ticket_details(callback)
-    else:
+    if not ticket or ticket.status != "in_progress":
         await callback.answer("❌ Нельзя вернуть это обращение в открытые!")
+        return
+
+    ticket.status = "open"
+    await session.commit()
+
+    await callback.answer("✅ Обращение возвращено в открытые!")
+    await admin_view_ticket_details(callback)
