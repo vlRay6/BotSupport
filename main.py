@@ -3,7 +3,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from app.config import config
+from app.config import settings
 from app.handlers import start, tickets, admin
 from app.middlewares import DatabaseMiddleware
 
@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 async def main():
-    bot = Bot(token=config.BOT_TOKEN)
+    bot = Bot(token=settings.bot_token)
     storage = MemoryStorage()
     dp = Dispatcher(storage=storage)
     dp.update.middleware(DatabaseMiddleware())

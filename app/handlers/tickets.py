@@ -12,7 +12,7 @@ from sqlalchemy import select
 from app.db.session import get_db
 from app.db.models import Ticket, Message as TicketMessage
 from app.keyboards.main import get_ticket_keyboard, get_main_keyboard
-from app.config import config
+from app.config import settings
 
 
 router = Router()
@@ -59,9 +59,9 @@ async def process_message(message: Message, state: FSMContext):
                 session.add(msg)
                 await session.commit()
 
-                if config.ADMIN_IDS:
+                if settings.admin_ids:
                     admin_text = f"💬 Новое сообщение в обращении #{ticket.id}\n👤 Пользователь: @{message.from_user.username or 'нет'}"
-                    for admin_id in config.ADMIN_IDS:
+                    for admin_id in settings.admin_ids:
                         try:
                             await message.bot.send_message(
                                 admin_id,
@@ -98,8 +98,8 @@ async def process_message(message: Message, state: FSMContext):
         await session.commit()
         admin_text = f"📨 Новое обращение #{ticket.id}\n👤 Пользователь: @{message.from_user.username or 'нет'}\n📝 Тема: {subject}"
 
-        if config.ADMIN_IDS:
-            for admin_id in config.ADMIN_IDS:
+        if settings.admin_ids:
+            for admin_id in settings.admin_ids:
                 try:
                     await message.bot.send_message(
                         admin_id,

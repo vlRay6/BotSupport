@@ -8,14 +8,14 @@ from aiogram.types import (
 from sqlalchemy import select, func, desc
 from app.db.session import get_db
 from app.db.models import Ticket, Message as TicketMessage
-from app.config import config
+from app.config import settings
 
 router = Router()
 
 
 @router.message(F.text == "📊 Статистика")
 async def show_stats(message: Message):
-    if message.from_user.id not in config.ADMIN_IDS:
+    if message.from_user.id not in settings.admin_ids:
         return
 
     async with get_db() as session:
@@ -43,7 +43,7 @@ async def show_stats(message: Message):
 
 @router.message(F.text == "📋 Все обращения")
 async def show_all_tickets(message: Message):
-    if message.from_user.id not in config.ADMIN_IDS:
+    if message.from_user.id not in settings.admin_ids:
         return
 
     async with get_db() as session:
@@ -102,7 +102,7 @@ async def show_all_tickets(message: Message):
 
 @router.callback_query(F.data.startswith("filter_"))
 async def filter_tickets(callback: CallbackQuery):
-    if callback.from_user.id not in config.ADMIN_IDS:
+    if callback.from_user.id not in settings.admin_ids:
         await callback.answer("❌ Доступ запрещен!")
         return
 
@@ -176,7 +176,7 @@ async def filter_tickets(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("admin_view_ticket_"))
 async def admin_view_ticket_details(callback: CallbackQuery):
-    if callback.from_user.id not in config.ADMIN_IDS:
+    if callback.from_user.id not in settings.admin_ids:
         await callback.answer("❌ Доступ запрещен!")
         return
 
@@ -264,7 +264,7 @@ async def admin_view_ticket_details(callback: CallbackQuery):
 
 @router.callback_query(F.data == "admin_back_to_list")
 async def admin_back_to_tickets_list(callback: CallbackQuery):
-    if callback.from_user.id not in config.ADMIN_IDS:
+    if callback.from_user.id not in settings.admin_ids:
         await callback.answer("❌ Доступ запрещен!")
         return
 
@@ -274,7 +274,7 @@ async def admin_back_to_tickets_list(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("take_"))
 async def take_ticket(callback: CallbackQuery):
-    if callback.from_user.id not in config.ADMIN_IDS:
+    if callback.from_user.id not in settings.admin_ids:
         await callback.answer("❌ Доступ запрещен!")
         return
 
@@ -303,7 +303,7 @@ async def take_ticket(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("reopen_"))
 async def reopen_ticket(callback: CallbackQuery):
-    if callback.from_user.id not in config.ADMIN_IDS:
+    if callback.from_user.id not in settings.admin_ids:
         await callback.answer("❌ Доступ запрещен!")
         return
 

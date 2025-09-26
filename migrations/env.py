@@ -5,14 +5,14 @@ from sqlalchemy import pool
 
 from alembic import context
 
-from app.config import config as app_config
+from app.config import settings
 from app.db.models import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
-url = app_config.DB_URL
+url = settings.db_url
 url = url.replace("sqlite+aiosqlite", "sqlite")
 url = url.replace("aiosqlite+sqlite", "sqlite")
 
