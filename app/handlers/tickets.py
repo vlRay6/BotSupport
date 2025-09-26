@@ -7,21 +7,15 @@ from aiogram.types import (
     InlineKeyboardMarkup,
 )
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Ticket, Message as TicketMessage
 from app.keyboards.main import get_ticket_keyboard, get_main_keyboard
 from app.config import settings
+from app.states.ticket import TicketStates
 
 
 router = Router()
-
-
-class TicketStates(StatesGroup):
-    waiting_for_subject = State()
-    waiting_for_message = State()
-    waiting_for_reply = State()
 
 
 @router.message(F.text == "📨 Создать обращение")
