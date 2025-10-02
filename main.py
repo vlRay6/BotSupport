@@ -3,29 +3,21 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from config import config
-from database import engine
-from models.ticket import Base
-from handlers import start, tickets, admin
-from middlewares import DatabaseMiddleware
+from app.config import settings
+from app.handlers import start, tickets, admin
+from app.middlewares import DatabaseMiddleware
 
 logging.basicConfig(level=logging.INFO)
 
 
-async def create_tables():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-
 async def main():
-    bot = Bot(token=config.BOT_TOKEN)
+    bot = Bot(token=settings.bot_token)
     storage = MemoryStorage()
     dp = Dispatcher(storage=storage)
-    await create_tables()
-    dp.update.middleware(DatabaseMiddleware())
     dp.include_router(start.router)
     dp.include_router(tickets.router)
     dp.include_router(admin.router)
+    dp.update.middleware(DatabaseMiddleware())
     try:
         await dp.start_polling(bot)
     except Exception as e:

@@ -1,6 +1,17 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey
+from sqlalchemy import (
+    Column,
+    Enum,
+    Integer,
+    String,
+    DateTime,
+    Boolean,
+    Text,
+    ForeignKey,
+)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
+
+from app.db.enums import TicketStatus
 
 Base = declarative_base()
 
@@ -13,7 +24,7 @@ class Ticket(Base):
     username = Column(String, nullable=True)
     first_name = Column(String, nullable=True)
     last_name = Column(String, nullable=True)
-    status = Column(String, default="open")
+    status = Column(Enum(TicketStatus), default=TicketStatus.open)
     created_at = Column(DateTime, default=func.now())
     closed_at = Column(DateTime, nullable=True)
 
