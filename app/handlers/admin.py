@@ -10,15 +10,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.enums import TicketStatus
 from app.db.models import Ticket, Message as TicketMessage
 from app.config import settings
+from app.filters.admin import IsAdminCallback, IsAdminMessage
 
 router = Router()
+
+router.message.filter(IsAdminMessage())
+router.callback_query.filter(IsAdminCallback())
 
 
 @router.message(F.text == "📊 Статистика")
 async def show_stats(message: Message, session: AsyncSession):
-    if message.from_user.id not in settings.admin_ids:
-        return
-
     total_tickets = await session.scalar(select(func.count(Ticket.id)))
     open_tickets = await session.scalar(
         select(func.count(Ticket.id)).where(Ticket.status == TicketStatus.open)
@@ -43,9 +44,6 @@ async def show_stats(message: Message, session: AsyncSession):
 
 @router.message(F.text == "📋 Все обращения")
 async def show_all_tickets(message: Message, session: AsyncSession):
-    if message.from_user.id not in settings.admin_ids:
-        return
-
     result = await session.execute(
         select(Ticket).order_by(desc(Ticket.created_at)).limit(50)
     )
@@ -99,10 +97,6 @@ async def show_all_tickets(message: Message, session: AsyncSession):
 
 @router.callback_query(F.data.startswith("filter_"))
 async def filter_tickets(callback: CallbackQuery, session: AsyncSession):
-    if callback.from_user.id not in settings.admin_ids:
-        await callback.answer("❌ Доступ запрещен!")
-        return
-
     filter_type = callback.data.split("_")[1]
 
     if filter_type == "all":
@@ -172,10 +166,6 @@ async def filter_tickets(callback: CallbackQuery, session: AsyncSession):
 
 @router.callback_query(F.data.startswith("admin_view_ticket_"))
 async def admin_view_ticket_details(callback: CallbackQuery, session: AsyncSession):
-    if callback.from_user.id not in settings.admin_ids:
-        await callback.answer("❌ Доступ запрещен!")
-        return
-
     ticket_id = int(callback.data.split("_")[3])
 
     ticket = await session.get(Ticket, ticket_id)
@@ -258,21 +248,13 @@ async def admin_view_ticket_details(callback: CallbackQuery, session: AsyncSessi
 
 
 @router.callback_query(F.data == "admin_back_to_list")
-async def admin_back_to_tickets_list(callback: CallbackQuery):
-    if callback.from_user.id not in settings.admin_ids:
-        await callback.answer("❌ Доступ запрещен!")
-        return
-
-    await show_all_tickets(callback.message)
+async def admin_back_to_tickets_list(callback: CallbackQuery, session: AsyncSession):
+    await show_all_tickets(callback.message, session)
     await callback.answer()
 
 
 @router.callback_query(F.data.startswith("take_"))
 async def take_ticket(callback: CallbackQuery, session: AsyncSession):
-    if callback.from_user.id not in settings.admin_ids:
-        await callback.answer("❌ Доступ запрещен!")
-        return
-
     ticket_id = int(callback.data.split("_")[1])
 
     ticket = await session.get(Ticket, ticket_id)
@@ -293,15 +275,11 @@ async def take_ticket(callback: CallbackQuery, session: AsyncSession):
 
     await callback.answer("✅ Обращение взято в работу!")
 
-    await admin_view_ticket_details(callback)
+    await admin_view_ticket_details(callback, session)
 
 
 @router.callback_query(F.data.startswith("reopen_"))
 async def reopen_ticket(callback: CallbackQuery, session: AsyncSession):
-    if callback.from_user.id not in settings.admin_ids:
-        await callback.answer("❌ Доступ запрещен!")
-        return
-
     ticket_id = int(callback.data.split("_")[1])
 
     ticket = await session.get(Ticket, ticket_id)
@@ -313,4 +291,4 @@ async def reopen_ticket(callback: CallbackQuery, session: AsyncSession):
     await session.commit()
 
     await callback.answer("✅ Обращение возвращено в открытые!")
-    await admin_view_ticket_details(callback)
+    await admin_view_ticket_details(callback, session)

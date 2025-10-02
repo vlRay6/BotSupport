@@ -42,7 +42,7 @@ async def process_message(message: Message, state: FSMContext, session: AsyncSes
 
     if is_additional and ticket_id:
         ticket = await session.get(Ticket, ticket_id)
-        if not ticket or ticket.status != "open":
+        if not ticket or ticket.status != TicketStatus.open:
             await message.answer("❌ Нельзя добавить сообщение.")
             await state.clear()
             return
@@ -270,7 +270,11 @@ async def add_message_to_ticket(
     ticket_id = int(callback.data.split("_")[2])
 
     ticket = await session.get(Ticket, ticket_id)
-    if not ticket or ticket.user_id != callback.from_user.id or ticket.status != "open":
+    if (
+        not ticket
+        or ticket.user_id != callback.from_user.id
+        or ticket.status != TicketStatus.open
+    ):
         await callback.answer("❌ Нельзя добавить сообщение к этому обращению!")
         return
 
