@@ -2,15 +2,13 @@ from aiogram import Router, F
 from aiogram.types import (
     Message,
     CallbackQuery,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
 )
 from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.enums import TicketStatus
 from app.db.models import Ticket, Message as TicketMessage
-from app.config import settings
 from app.filters.admin import IsAdminCallback, IsAdminMessage
+from app.keyboards.admin import all_tickets_keyboard, one_ticket_keyboard
 
 router = Router()
 
@@ -53,51 +51,15 @@ async def show_all_tickets(message: Message, session: AsyncSession):
         await message.answer("📭 Нет созданных обращений.")
         return
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[])
-
-    keyboard.inline_keyboard.append(
-        [
-            InlineKeyboardButton(text="🔓 Открытые", callback_data="filter_open"),
-            InlineKeyboardButton(
-                text="🔄 В работе", callback_data="filter_in_progress"
-            ),
-            InlineKeyboardButton(text="🔒 Закрытые", callback_data="filter_closed"),
-        ]
+    await message.answer(
+        f"📋 Все обращения ({len(tickets)}):",
+        reply_markup=all_tickets_keyboard(tickets),
     )
-
-    keyboard.inline_keyboard.append(
-        [InlineKeyboardButton(text="📋 Все", callback_data="filter_all")]
-    )
-
-    for ticket in tickets:
-        status_emoji = (
-            "🔓"
-            if ticket.status == TicketStatus.open
-            else "🔄"
-            if ticket.status == TicketStatus.in_progress
-            else "🔒"
-        )
-        username = (
-            f"@{ticket.username}"
-            if ticket.username
-            else f"{ticket.first_name or ''} {ticket.last_name or ''}".strip()
-        )
-
-        keyboard.inline_keyboard.append(
-            [
-                InlineKeyboardButton(
-                    text=f"{status_emoji} #{ticket.id} - {username}",
-                    callback_data=f"admin_view_ticket_{ticket.id}",
-                )
-            ]
-        )
-
-    await message.answer(f"📋 Все обращения ({len(tickets)}):", reply_markup=keyboard)
 
 
 @router.callback_query(F.data.startswith("filter_"))
 async def filter_tickets(callback: CallbackQuery, session: AsyncSession):
-    filter_type = callback.data.split("_")[1]
+    filter_type = callback.data.split("_", 1)[1]
 
     if filter_type == "all":
         result = await session.execute(
@@ -118,48 +80,10 @@ async def filter_tickets(callback: CallbackQuery, session: AsyncSession):
         await callback.answer()
         return
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[])
-
-    keyboard.inline_keyboard.append(
-        [
-            InlineKeyboardButton(text="🔓 Открытые", callback_data="filter_open"),
-            InlineKeyboardButton(
-                text="🔄 В работе", callback_data="filter_in_progress"
-            ),
-            InlineKeyboardButton(text="🔒 Закрытые", callback_data="filter_closed"),
-        ]
-    )
-
-    keyboard.inline_keyboard.append(
-        [InlineKeyboardButton(text="📋 Все", callback_data="filter_all")]
-    )
-
-    for ticket in tickets:
-        status_emoji = (
-            "🔓"
-            if ticket.status == TicketStatus.open
-            else "🔄"
-            if ticket.status == TicketStatus.in_progress
-            else "🔒"
-        )
-        username = (
-            f"@{ticket.username}"
-            if ticket.username
-            else f"{ticket.first_name or ''} {ticket.last_name or ''}".strip()
-        )
-
-        keyboard.inline_keyboard.append(
-            [
-                InlineKeyboardButton(
-                    text=f"{status_emoji} #{ticket.id} - {username}",
-                    callback_data=f"admin_view_ticket_{ticket.id}",
-                )
-            ]
-        )
-
     filter_name = "все" if filter_type == "all" else filter_type
     await callback.message.edit_text(
-        f"📋 Обращения ({filter_name}): {len(tickets)}", reply_markup=keyboard
+        f"📋 Обращения ({filter_name}): {len(tickets)}",
+        reply_markup=all_tickets_keyboard(tickets),
     )
     await callback.answer()
 
@@ -203,47 +127,7 @@ async def admin_view_ticket_details(callback: CallbackQuery, session: AsyncSessi
         sender = "👤 Пользователь" if msg.is_from_user else "🛠 Поддержка"
         text += f"{sender} ({msg.created_at.strftime('%H:%M')}):\n{msg.text}\n\n"
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[])
-
-    if ticket.status != "closed":
-        keyboard.inline_keyboard.append(
-            [
-                InlineKeyboardButton(
-                    text="💬 Ответить", callback_data=f"reply_{ticket.id}"
-                ),
-                InlineKeyboardButton(
-                    text="🔒 Закрыть", callback_data=f"close_{ticket.id}"
-                ),
-            ]
-        )
-
-        if ticket.status == TicketStatus.open:
-            keyboard.inline_keyboard.append(
-                [
-                    InlineKeyboardButton(
-                        text="🔄 Взять в работу", callback_data=f"take_{ticket.id}"
-                    )
-                ]
-            )
-        else:
-            keyboard.inline_keyboard.append(
-                [
-                    InlineKeyboardButton(
-                        text="🔓 Вернуть в открытые",
-                        callback_data=f"reopen_{ticket.id}",
-                    )
-                ]
-            )
-
-    keyboard.inline_keyboard.append(
-        [
-            InlineKeyboardButton(
-                text="⬅️ Назад к списку", callback_data="admin_back_to_list"
-            )
-        ]
-    )
-
-    await callback.message.edit_text(text, reply_markup=keyboard)
+    await callback.message.edit_text(text, reply_markup=one_ticket_keyboard(ticket))
     await callback.answer()
 
 

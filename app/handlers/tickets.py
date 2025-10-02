@@ -3,8 +3,6 @@ from aiogram.types import (
     Message,
     CallbackQuery,
     ReplyKeyboardRemove,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
 )
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import select
@@ -13,6 +11,7 @@ from app.db.enums import TicketStatus
 from app.db.models import Ticket, Message as TicketMessage
 from app.keyboards.main import get_ticket_keyboard, get_main_keyboard
 from app.config import settings
+from app.keyboards.ticket import my_ticket_keyboard, my_tickets_keyboard
 from app.states.ticket import TicketStates
 
 
@@ -183,26 +182,10 @@ async def show_my_tickets(message: Message, session: AsyncSession):
         await message.answer("📭 У вас нет созданных обращений.")
         return
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[])
-
-    for ticket in tickets:
-        status_emoji = (
-            "🔓"
-            if ticket.status == TicketStatus.open
-            else "🔒"
-            if ticket.status == TicketStatus.closed
-            else "🔄"
-        )
-        keyboard.inline_keyboard.append(
-            [
-                InlineKeyboardButton(
-                    text=f"{status_emoji} Обращение #{ticket.id} ({ticket.status})",
-                    callback_data=f"view_ticket_{ticket.id}",
-                )
-            ]
-        )
-
-    await message.answer(f"📋 Ваши обращения ({len(tickets)}):", reply_markup=keyboard)
+    await message.answer(
+        f"📋 Ваши обращения ({len(tickets)}):",
+        reply_markup=my_tickets_keyboard(tickets),
+    )
 
 
 @router.callback_query(F.data.startswith("view_ticket_"))
@@ -237,23 +220,7 @@ async def view_ticket_details(callback: CallbackQuery, session: AsyncSession):
         sender = "👤 Вы" if msg.is_from_user else "🛠 Поддержка"
         text += f"{sender} ({msg.created_at.strftime('%H:%M')}):\n{msg.text}\n\n"
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[])
-
-    if ticket.status == TicketStatus.open:
-        keyboard.inline_keyboard.append(
-            [
-                InlineKeyboardButton(
-                    text="💬 Добавить сообщение",
-                    callback_data=f"add_message_{ticket.id}",
-                )
-            ]
-        )
-
-    keyboard.inline_keyboard.append(
-        [InlineKeyboardButton(text="⬅️ Назад к списку", callback_data="back_to_tickets")]
-    )
-
-    await callback.message.edit_text(text, reply_markup=keyboard)
+    await callback.message.edit_text(text, reply_markup=my_ticket_keyboard(ticket))
     await callback.answer()
 
 
